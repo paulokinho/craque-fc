@@ -1,0 +1,19 @@
+{
+  "name": "@craque-fc/worker",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.4.0",
+    "drizzle-orm": "^0.35.0",
+    "postgres": "^3.4.0",
+    "web-push": "^3.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lockfile (Bun binary lockfile)
+bun.lockb
+
+# Docker volumes
+postgres_data/
+dragonfly_data/
+
+# Test artifacts
+test-results/
+playwright-report/
+tests/screenshots/*.png
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+
+# PWA dev
+dev-dist/
+
+# Keep PWA icons
+!apps/web/public/icons/*.png

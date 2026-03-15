@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-pitch: #0A1628;
+  --color-pitch-light: #0D1F3C;
+  --color-pitch-card: #132038;
+  --color-gold: #F9CB42;
+  --color-gold-dark: #BA7517;
+  --color-verde: #00A650;
+  --color-azul: #009ADE;
+  --color-error: #E53E3E;
+  --color-text: #E8EDF5;
+  --color-muted: #7A8BA8;
+  --color-border: rgba(249, 203, 66, 0.15);
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--color-pitch);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+}
+
+.pitch-bg {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 255, 255, 0.015) 40px,
+      rgba(255, 255, 255, 0.015) 80px
+    );
+}
+
+.gold-glow {
+  box-shadow: 0 0 20px rgba(249, 203, 66, 0.3);
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--color-pitch); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }

@@ -1,0 +1,23 @@
+{
+  "name": "craque-fc",
+  "private": true,
+  "workspaces": ["apps/api", "apps/web", "apps/worker"],
+  "scripts": {
+    "dev": "bun run --parallel dev:api dev:web dev:worker",
+    "dev:api": "cd apps/api && bun run dev",
+    "dev:web": "cd apps/web && bun run dev",
+    "dev:worker": "cd apps/worker && bun run dev",
+    "build": "bun run --parallel build:api build:web",
+    "db:push": "cd apps/api && bun run db:push",
+    "db:seed": "cd apps/api && bun run db:seed",
+    "test:unit": "cd apps/api && bun vitest run",
+    "test:e2e": "bunx playwright test --reporter=html",
+    "test": "bun run test:unit && bun run test:e2e",
+    "docker:up": "docker-compose up --build --wait",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "vitest": "^4.1.0"
+  }
+}

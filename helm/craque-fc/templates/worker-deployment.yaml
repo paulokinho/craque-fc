@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "craque-fc.fullname" . }}-worker
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "craque-fc.labels" . | nindent 4 }}
+    {{- include "craque-fc.worker.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "craque-fc.worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "craque-fc.labels" . | nindent 8 }}
+        {{- include "craque-fc.worker.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "craque-fc.image" (dict "global" .Values.global "image" .Values.worker.image) }}
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          command: ["npm", "run", "worker"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "craque-fc.fullname" . }}-config
+            - secretRef:
+                name: {{ include "craque-fc.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}

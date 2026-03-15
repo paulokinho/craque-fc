@@ -1,0 +1,9 @@
+node_modules
+apps/*/node_modules
+dist
+.git
+*.md
+playwright-report
+test-results
+tests
+bun.lockb

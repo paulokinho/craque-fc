@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: craque
+      POSTGRES_PASSWORD: craque_dev
+      POSTGRES_DB: craque_fc
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U craque -d craque_fc"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    ports:
+      - "6379:6379"
+    ulimits:
+      memlock: -1
+    volumes:
+      - dragonfly_data:/data
+    command: >
+      --logtostderr
+      --cache_mode=false
+      --maxmemory=256mb
+      --proactor_threads=1
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgres://craque:craque_dev@postgres:5432/craque_fc
+      REDIS_URL: redis://dragonfly:6379
+      PORT: 3001
+      JWT_SECRET: test_jwt_secret_for_e2e_only
+      CORS_ORIGIN: http://localhost:5173
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      VAPID_PUBLIC_KEY: placeholder
+      VAPID_PRIVATE_KEY: placeholder
+      VAPID_EMAIL: mailto:admin@craquefc.app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://craque:craque_dev@postgres:5432/craque_fc
+      REDIS_URL: redis://dragonfly:6379
+      VAPID_PUBLIC_KEY: placeholder
+      VAPID_PRIVATE_KEY: placeholder
+      VAPID_EMAIL: mailto:admin@craquefc.app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dragonfly:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3001
+      VITE_WS_URL: ws://localhost:3001
+      VITE_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  dragonfly_data:

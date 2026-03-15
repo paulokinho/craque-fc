@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "craque-fc.fullname" . }}-web
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "craque-fc.labels" . | nindent 4 }}
+    {{- include "craque-fc.web.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.web.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "craque-fc.web.selectorLabels" . | nindent 4 }}

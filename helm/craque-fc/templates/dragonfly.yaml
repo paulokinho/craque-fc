@@ -1,0 +1,82 @@
+{{- if .Values.dragonfly.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "craque-fc.fullname" . }}-dragonfly
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "craque-fc.labels" . | nindent 4 }}
+    {{- include "craque-fc.dragonfly.selectorLabels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "craque-fc.fullname" . }}-dragonfly
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "craque-fc.dragonfly.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "craque-fc.labels" . | nindent 8 }}
+        {{- include "craque-fc.dragonfly.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: dragonfly
+          image: {{ .Values.dragonfly.image.repository }}:{{ .Values.dragonfly.image.tag }}
+          imagePullPolicy: {{ .Values.dragonfly.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: {{ .Values.dragonfly.port }}
+              protocol: TCP
+          {{- with .Values.dragonfly.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.dragonfly.resources | nindent 12 }}
+          {{- if .Values.dragonfly.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- end }}
+  {{- if .Values.dragonfly.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.dragonfly.persistence.storageClass }}
+        storageClassName: {{ .Values.dragonfly.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.dragonfly.persistence.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "craque-fc.fullname" . }}-dragonfly
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "craque-fc.labels" . | nindent 4 }}
+    {{- include "craque-fc.dragonfly.selectorLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.dragonfly.port }}
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "craque-fc.dragonfly.selectorLabels" . | nindent 4 }}
+{{- end }}
