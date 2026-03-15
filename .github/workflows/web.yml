@@ -11,9 +11,14 @@ on:
     paths:
       - 'apps/web/**'
 
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/web
+  LOCAL_TAG: craque-web:scan
 
 permissions:
   contents: read
@@ -24,20 +29,27 @@ jobs:
   build-scan-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      # ── Setup ───────────────────────────────────────────────────
+      - name: Checkout (sparse)
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            apps/web
+            package.json
+            .dockerignore
+          sparse-checkout-cone-mode: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -47,33 +59,46 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build image (no push yet)
+      # ── Build once → local daemon (for Trivy) ──────────────────
+      - name: Build image (local only)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/web/Dockerfile.prod
-          push: false
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.LOCAL_TAG }}
           build-args: |
             VITE_API_URL=https://craquefc.app/api
             VITE_WS_URL=wss://craquefc.app/ws
             VITE_STRIPE_PUBLISHABLE_KEY=pk_live_placeholder
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+          provenance: false
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+      # ── Scan ────────────────────────────────────────────────────
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          path: /tmp/trivy-db
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: trivy-db-
+
+      - name: Trivy CVE scan
+        uses: aquasecurity/trivy-action@0.28.0
+        env:
+          TRIVY_CACHE_DIR: /tmp/trivy-db
+        with:
+          image-ref: ${{ env.LOCAL_TAG }}
           format: 'table'
           exit-code: '1'
           severity: 'MEDIUM,HIGH,CRITICAL'
           ignore-unfixed: true
+          scanners: 'vuln'
+          timeout: '5m'
 
-      - name: Push image to GHCR
-        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      # ── Push (master only, scan passed) ─────────────────────────
+      - name: Push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -85,5 +110,5 @@ jobs:
             VITE_API_URL=https://craquefc.app/api
             VITE_WS_URL=wss://craquefc.app/ws
             VITE_STRIPE_PUBLISHABLE_KEY=pk_live_placeholder
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          provenance: false
