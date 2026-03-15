@@ -29,15 +29,8 @@ jobs:
   build-scan-push:
     runs-on: ubuntu-latest
     steps:
-      # ── Setup ───────────────────────────────────────────────────
-      - name: Checkout (sparse)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            apps/web
-            package.json
-            .dockerignore
-          sparse-checkout-cone-mode: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -59,7 +52,6 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # ── Build once → local daemon (for Trivy) ──────────────────
       - name: Build image (local only)
         uses: docker/build-push-action@v6
         with:
@@ -75,7 +67,12 @@ jobs:
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
           provenance: false
 
-      # ── Scan ────────────────────────────────────────────────────
+      - name: Install Trivy
+        run: |
+          TRIVY_VERSION="0.62.1"
+          curl -sfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            | tar -xzf - -C /usr/local/bin trivy
+
       - name: Cache Trivy DB
         uses: actions/cache@v4
         with:
@@ -84,19 +81,17 @@ jobs:
           restore-keys: trivy-db-
 
       - name: Trivy CVE scan
-        uses: aquasecurity/trivy-action@0.28.0
-        env:
-          TRIVY_CACHE_DIR: /tmp/trivy-db
-        with:
-          image-ref: ${{ env.LOCAL_TAG }}
-          format: 'table'
-          exit-code: '1'
-          severity: 'MEDIUM,HIGH,CRITICAL'
-          ignore-unfixed: true
-          scanners: 'vuln'
-          timeout: '5m'
+        run: |
+          trivy image \
+            --cache-dir /tmp/trivy-db \
+            --severity MEDIUM,HIGH,CRITICAL \
+            --ignore-unfixed \
+            --scanners vuln \
+            --exit-code 1 \
+            --timeout 5m \
+            --format table \
+            ${{ env.LOCAL_TAG }}
 
-      # ── Push (master only, scan passed) ─────────────────────────
       - name: Push to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v6
